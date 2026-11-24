@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2458a6">
+<meta name="description" content="Academia divertida para estudiar segundo de primaria.">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Mi Aula Divertida</title>
+<style>
+:root{--blue:#2458a6;--ink:#203047;--muted:#64748b;--line:#dbe3ef;--bg:#f3f7ff;--white:#fff;--yellow:#ffdf66}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px system-ui,-apple-system,Segoe UI,sans-serif}
+header{background:linear-gradient(135deg,#2458a6,#4c79d3);color:white;padding:22px 18px 26px;border-radius:0 0 26px 26px}
+.wrap{max-width:760px;margin:auto;padding:0 14px 28px}.top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+h1{font-size:1.55rem;margin:4px 0}h2{font-size:1.25rem;margin:8px 0}h3{font-size:1rem;margin:5px 0}
+.small{font-size:.86rem;color:var(--muted)}header .small{color:#dbeafe}
+.pill{background:#ffffff28;border:1px solid #ffffff50;padding:6px 10px;border-radius:99px;font-size:.8rem}
+.stats{display:flex;gap:10px;margin-top:18px}.stat{background:#ffffff20;border-radius:14px;padding:10px;flex:1}
+.stat b{display:block;font-size:1.3rem}.progress{height:9px;background:#ffffff40;border-radius:20px;overflow:hidden;margin-top:7px}.progress span{display:block;height:100%;background:var(--yellow);width:0}
+nav{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin:14px 0}
+nav button{border:0;background:white;border-radius:13px;padding:11px 4px;color:#52647e;font-weight:650}
+nav button.active{background:#dceaff;color:var(--blue)}
+.panel{background:white;border:1px solid var(--line);border-radius:18px;padding:16px;margin:12px 0;box-shadow:0 3px 12px #20304708}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.subject{border:0;border-radius:16px;padding:15px;text-align:left;min-height:112px;color:#23344d}
+.subject .emoji{font-size:2rem}.subject strong{display:block;font-size:1.05rem;margin:6px 0}
+button{cursor:pointer;font:inherit}.primary,.secondary{border:0;border-radius:12px;padding:12px 15px;font-weight:700;width:100%;margin-top:8px}
+.primary{background:var(--blue);color:white}.secondary{background:#eaf1fc;color:var(--blue)}
+label{display:block;font-weight:650;margin:12px 0 6px}input,select,textarea{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:11px;font:inherit;background:white;color:var(--ink)}
+textarea{min-height:90px;resize:vertical}.row{display:flex;gap:9px;align-items:center}.row>*{flex:1}
+.topic{width:100%;text-align:left;border:1px solid var(--line);background:#f8faff;padding:12px;border-radius:11px;margin:4px 0;display:flex;justify-content:space-between;align-items:center}
+.q{padding:13px 0;border-bottom:1px solid var(--line)}.q:last-child{border:0}.choice{display:block;width:100%;text-align:left;border:1px solid var(--line);background:white;border-radius:10px;padding:10px;margin:6px 0}.choice.selected{border-color:var(--blue);background:#eaf1fc}.correct{color:#15803d;font-weight:700}.wrong{color:#b91c1c;font-weight:700}
+.badges{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}.badge{border:1px solid var(--line);border-radius:14px;padding:13px;text-align:center}.badge .medal{font-size:2rem}.locked{opacity:.45}
+footer{text-align:center;color:var(--muted);font-size:.8rem;padding:16px}
+.hidden{display:none!important}
+@media(min-width:600px){header{padding:28px calc((100% - 720px)/2 + 18px)}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+ <div class="top"><div><div class="pill">🎓 Segundo de primaria</div><h1>🌈 Mi Aula Divertida</h1><div class="small">¡Hola, Santiago! Tu aventura de aprendizaje comienza aquí.</div></div><div style="font-size:3rem">🧑‍🚀</div></div>
+ <div class="stats"><div class="stat">⭐ <b id="stars">0</b><span class="small">Estrellas</span></div><div class="stat">📚 <b id="doneCount">0/20</b><span class="small">Temas aprendidos</span></div></div>
+ <div class="progress"><span id="bar"></span></div>
+</div></header>
+<main class="wrap">
+<nav>
+<button class="active" data-page="home">🏠<br>Inicio</button><button data-page="subjects">📚<br>Materias</button><button data-page="study">✏️<br>Estudiar</button><button data-page="rewards">🏆<br>Premios</button>
+</nav>
+<section id="home" class="page">
+ <div class="panel"><h2>¡Elige tu aventura!</h2><p class="small">Aprende un poquito cada día. ¡Tú puedes!</p><div class="grid" id="homeSubjects"></div></div>
+ <div class="panel"><h3>🎯 Reto del día</h3><p>Completa una clase y responde un examen para ganar estrellas.</p><button class="primary" onclick="openStudy('Español','Verbos en infinitivo')">Comenzar aventura</button></div>
+ <div class="panel"><h3>👨‍👦 Zona para mamá o papá</h3><p class="small">Agrega una tarea, crea una práctica o revisa el avance de Santiago.</p><button class="secondary" onclick="showPage('parent')">Abrir herramientas para adultos</button></div>
+</section>
+<section id="subjects" class="page hidden"><div class="panel"><h2>📚 Materias y temas</h2><div id="subjectList"></div></div></section>
+<section id="study" class="page hidden">
+ <div class="panel"><h2>✏️ Preparar una clase</h2>
+ <label>Materia</label><select id="subjectSelect"></select>
+ <label>Tema</label><select id="topicSelect"></select>
+ <label>Dificultad</label><select id="level"><option>Fácil</option><option selected>Intermedio</option><option>Reto</option></select>
+ <button class="primary" onclick="renderLesson()">Ver explicación y ejemplos</button>
+ <div id="lesson" class="hidden"></div>
+ <button class="secondary" onclick="startQuiz()">Hacer examen de práctica</button>
+ <div id="quiz" class="hidden"></div>
+ </div>
+</section>
+<section id="rewards" class="page hidden"><div class="panel"><h2>🏆 Mis premios</h2><h3 id="starText">⭐ 0 estrellas</h3><p class="small">Cada tema que completas suma 10 estrellas.</p><div class="badges" id="badges"></div><h3 style="margin-top:18px">Temas aprendidos</h3><div id="completedList" class="small">Todavía no hay temas marcados.</div></div></section>
+<section id="parent" class="page hidden"><div class="panel"><h2>👨‍👦 Herramientas para adultos</h2><p class="small">Escribe la tarea de la escuela para preparar una actividad a la medida.</p>
+<label>Materia</label><select id="parentSubject"></select><label>Tarea o tema</label><textarea id="customTask" placeholder="Ej. Resolver sumas llevando o identificar verbos en infinitivo..."></textarea>
+<label>Tipo de actividad</label><select id="taskType"><option>Clase completa con explicación y ejemplos</option><option>10 ejercicios con respuestas</option><option>Examen de 10 preguntas</option><option>Actividad para imprimir</option></select>
+<button class="primary" onclick="makeTask()">Preparar actividad</button><div id="taskOutput" class="small" style="margin-top:12px"></div>
+<button class="secondary" onclick="showPage('home')">Volver al inicio</button></div></section>
+</main><footer>Mi Aula Divertida · Hecho con cariño para Santiago 💙</footer>
+<script>
+const data={
+"Español":["Verbos en infinitivo","Sustantivos y adjetivos","Singular y plural","Sinónimos y antónimos","Comprensión lectora"],
+"Matemáticas":["Sumas y restas","Multiplicaciones","Tablas del 1 al 10","Unidades, decenas y centenas","Problemas matemáticos"],
+"Ciencias":["Los seres vivos","El cuerpo humano","Los animales","Las plantas","El agua y sus estados"],
+"Comprensión lectora":["Lectura de cuentos","Personajes y escenarios","Ordenar historias","Ideas principales","Preguntas de lectura"]};
+const emojis={"Español":"📚","Matemáticas":"🔢","Ciencias":"🔬","Comprensión lectora":"🧠"};
+const colors={"Español":"#dbeafe","Matemáticas":"#dcfce7","Ciencias":"#fce7f3","Comprensión lectora":"#fef3c7"};
+let state=JSON.parse(localStorage.getItem("aulaSantiago")||'{"stars":0,"completed":[]}');
+let currentQuiz=[],selected={};
+function save(){localStorage.setItem("aulaSantiago",JSON.stringify(state));updateStats()}
+function updateStats(){document.getElementById("stars").textContent=state.stars;document.getElementById("doneCount").textContent=state.completed.length+"/20";document.getElementById("bar").style.width=(state.completed.length/20*100)+"%";document.getElementById("starText").textContent="⭐ "+state.stars+" estrellas";
+ document.getElementById("completedList").innerHTML=state.completed.length?state.completed.map(x=>"✅ "+escapeHtml(x.replace("|"," · "))).join("<br>"):"Todavía no hay temas marcados.";
+ const b=[["Primer paso","🌱",state.completed.length>=1,"Completa un tema"],["Explorador","🧭",state.completed.length>=3,"Completa 3 temas"],["Gran estudiante","🎓",state.completed.length>=5,"Completa 5 temas"],["Superaprendiz","🏆",state.completed.length>=10,"Completa 10 temas"]];
+ document.getElementById("badges").innerHTML=b.map(x=>`<div class="badge ${x[2]?"":"locked"}"><div class="medal">${x[1]}</div><b>${x[0]}</b><div class="small">${x[2]?"¡Conseguida!":x[3]}</div></div>`).join("");
+}
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function showPage(p){document.querySelectorAll(".page").forEach(x=>x.classList.add("hidden"));document.getElementById(p).classList.remove("hidden");document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===p));window.scrollTo(0,0)}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>showPage(b.dataset.page)));
+function makeCard(s){return `<button class="subject" style="background:${colors[s]}" onclick="openStudy('${s}','${data[s][0]}')"><span class="emoji">${emojis[s]}</span><strong>${s}</strong><span class="small">${data[s].length} aventuras · Entrar →</span></button>`}
+document.getElementById("homeSubjects").innerHTML=Object.keys(data).map(makeCard).join("");
+document.getElementById("subjectList").innerHTML=Object.keys(data).map(s=>`<div style="margin:14px 0"><h3>${emojis[s]} ${s}</h3>${data[s].map(t=>`<button class="topic" onclick="openStudy('${s}','${t}')">${t}<span>›</span></button>`).join("")}</div>`).join("");
+function fillSelects(){["subjectSelect","parentSubject"].forEach(id=>{document.getElementById(id).innerHTML=Object.keys(data).map(s=>`<option>${s}</option>`).join("")});updateTopics()}
+function updateTopics(){let s=document.getElementById("subjectSelect").value;document.getElementById("topicSelect").innerHTML=data[s].map(t=>`<option>${t}</option>`).join("")}
+document.getElementById("subjectSelect").addEventListener("change",updateTopics);
+function openStudy(s,t){showPage("study");document.getElementById("subjectSelect").value=s;updateTopics();document.getElementById("topicSelect").value=t;document.getElementById("lesson").classList.add("hidden");document.getElementById("quiz").classList.add("hidden")}
+function renderLesson(){let s=document.getElementById("subjectSelect").value,t=document.getElementById("topicSelect").value;let examples={
+"Verbos en infinitivo":["Los verbos nombran acciones. En infinitivo terminan en AR, ER o IR.","AR: saltar, cantar, jugar. ER: comer, correr, beber. IR: dormir, escribir, vivir.","Ejemplo: «María corre». El infinitivo de corre es CORRER."],
+"Sumas y restas":["Sumar es juntar cantidades. Restar es quitar una cantidad.","Ejemplo: 12 + 5 = 17. Ejemplo: 17 − 5 = 12.","Puedes usar tus dedos, dibujos o fichas para contar."],
+"Multiplicaciones":["Multiplicar es sumar el mismo número varias veces.","Ejemplo: 3 × 4 significa 3 grupos de 4: 4 + 4 + 4 = 12.","Dibuja grupos de objetos para encontrar el resultado."],
+"Los seres vivos":["Los seres vivos nacen, crecen, se alimentan y pueden reproducirse.","Los animales, las plantas y las personas son seres vivos.","Una piedra no es un ser vivo porque no crece ni se alimenta."],
+"Lectura de cuentos":["Un cuento tiene personajes, un lugar y una historia.","El personaje principal es quien vive la parte más importante de la historia.","Al leer, piensa: ¿quién?, ¿dónde? y ¿qué pasó?"]};
+let generic=examples[t]||["Hoy aprenderemos "+t.toLowerCase()+".","Observa ejemplos, piensa qué tienen en común y explícalo con tus propias palabras.","Practica poco a poco. ¡Equivocarse también ayuda a aprender!"];
+document.getElementById("lesson").innerHTML=`<div class="panel" style="background:#f5f8ff"><h3>${emojis[s]} ${escapeHtml(t)}</h3><p>${generic[0]}</p><h3>Ejemplos</h3><p>${generic[1]}</p><p>${generic[2]}</p><button class="primary" onclick="completeTopic('${s}','${t}')">⭐ Terminé esta clase (+10)</button></div>`;document.getElementById("lesson").classList.remove("hidden")}
+function completeTopic(s,t){let key=s+"|"+t;if(!state.completed.includes(key)){state.completed.push(key);state.stars+=10;save()}alert("¡Muy bien, Santiago! Ganaste 10 estrellas ⭐")}
+const quizBank={
+"Español":[["¿Cuál es un verbo en infinitivo?",["Corrió","Correr","Corriendo"],"Correr"],["¿Cuál termina en AR?",["Comer","Dormir","Jugar"],"Jugar"],["¿Cuál termina en ER?",["Cantar","Beber","Vivir"],"Beber"],["¿Cuál termina en IR?",["Escribir","Saltar","Correr"],"Escribir"],["¿Cuál es el infinitivo de «comió»?",["Comer","Comiendo","Come"],"Comer"]],
+"Matemáticas":[["¿Cuánto es 7 × 5?",["30","35","40"],"35"],["¿Cuánto es 24 + 18?",["32","42","44"],"42"],["¿Cuánto es 50 − 17?",["33","37","43"],"33"],["¿Cuánto es 6 × 3?",["18","16","21"],"18"],["¿Qué número tiene 3 decenas?",["3","13","30"],"30"]],
+"Ciencias":[["¿Qué necesitan las plantas?",["Agua y luz","Juguetes","Zapatos"],"Agua y luz"],["¿Qué órgano usamos para respirar?",["Corazón","Pulmones","Estómago"],"Pulmones"],["¿Cuál es un ser vivo?",["Piedra","Árbol","Mesa"],"Árbol"],["¿Qué animal es mamífero?",["Perro","Mariposa","Pez"],"Perro"],["¿En qué estado está el hielo?",["Líquido","Sólido","Gas"],"Sólido"]],
+"Comprensión lectora":[["¿Quién es el protagonista?",["Personaje principal","Título","Dibujo"],"Personaje principal"],["¿Qué nos dice el título?",["De qué puede tratar","El final exacto","La edad"],"De qué puede tratar"],["¿Dónde ocurre una historia?",["En el escenario","En el abecedario","En el título"],"En el escenario"],["¿Qué hacemos para comprender?",["Leer con atención","Saltar páginas","Cerrar el libro"],"Leer con atención"],["¿Qué es el final?",["El cierre de la historia","El nombre","El dibujo"],"El cierre de la historia"]]};
+function startQuiz(){let s=document.getElementById("subjectSelect").value;currentQuiz=quizBank[s];selected={};let box=document.getElementById("quiz");box.innerHTML=`<h3>📝 Examen de ${s}</h3><p class="small">Responde las cinco preguntas. Cada acierto vale una estrella.</p>`+currentQuiz.map((q,i)=>`<div class="q"><b>${i+1}. ${q[0]}</b>${q[1].map(o=>`<button class="choice" data-i="${i}" data-o="${o}">${o}</button>`).join("")}<div id="feedback${i}"></div></div>`).join("")+`<button class="primary" id="grade">Calificar examen</button><div id="result"></div>`;
+box.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{let i=b.dataset.i;selected[i]=b.dataset.o;box.querySelectorAll(`[data-i="${i}"]`).forEach(x=>x.classList.toggle("selected",x===b))});
+document.getElementById("grade").onclick=()=>{let score=0;currentQuiz.forEach((q,i)=>{let ok=selected[i]===q[2];if(ok)score++;document.getElementById("feedback"+i).innerHTML=`<p class="${ok?"correct":"wrong"}">${ok?"¡Correcto!":"Respuesta correcta: "+q[2]}</p>`});state.stars+=score;save();document.getElementById("result").innerHTML=`<h2>Resultado: ${score}/5 ⭐</h2><p>${score===5?"¡Perfecto, campeón!": "¡Buen esfuerzo! Revisa las respuestas y vuelve a practicar."}</p>`;document.getElementById("grade").disabled=true};
+box.classList.remove("hidden");box.scrollIntoView({behavior:"smooth",block:"start"})}
+function makeTask(){let task=document.getElementById("customTask").value.trim();if(!task){alert("Escribe primero la tarea.");return}let s=document.getElementById("parentSubject").value;let type=document.getElementById("taskType").value;let prompt=`Prepara para un niño de 7 años de segundo de primaria una actividad de ${s}. Tarea: ${task}. Formato: ${type}. Incluye explicación sencilla, ejemplos, ejercicios y respuestas separadas para el adulto.`;document.getElementById("taskOutput").innerHTML=`<b>Texto listo para copiar en ChatGPT:</b><p>${escapeHtml(prompt)}</p><button class="secondary" onclick="navigator.clipboard.writeText(${JSON.stringify(prompt)}).then(()=>alert('Copiado'))">Copiar instrucciones</button><p>Después pégalo en ChatGPT para generar la actividad personalizada.</p>`}
+fillSelects();updateStats();
+if("serviceWorker" in navigator && location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script>
+</body></html>
