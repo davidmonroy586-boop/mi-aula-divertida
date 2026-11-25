@@ -1,10 +1,11 @@
 {
-  "name": "Mi Aula Divertida - Santiago",
+  "name": "Mi Aula Divertida",
   "short_name": "Mi Aula",
-  "lang": "es-MX",
-  "start_url": "./index.html",
+  "description": "Academia divertida para segundo de primaria",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f3f7ff",
   "theme_color": "#2458a6",
-  "description": "Academia educativa para segundo de primaria."
+  "lang": "es-MX"
 }
