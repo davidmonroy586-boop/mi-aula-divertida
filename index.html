@@ -107,15 +107,31 @@ const data={
 "Comprensión lectora":["Lectura de cuentos","Personajes y escenarios","Ordenar historias","Ideas principales","Preguntas de lectura"]};
 const emojis={"Español":"📚","Matemáticas":"🔢","Ciencias":"🔬","Comprensión lectora":"🧠"};
 const colors={"Español":"#dbeafe","Matemáticas":"#dcfce7","Ciencias":"#fce7f3","Comprensión lectora":"#fef3c7"};
+// Traduce las materias visibles a los códigos exactos permitidos por Supabase.
+const FIELD_CODE_BY_SUBJECT={
+  "Español":"lenguajes",
+  "Comprensión lectora":"lenguajes",
+  "Matemáticas":"saberes_pensamiento_cientifico",
+  "Ciencias":"saberes_pensamiento_cientifico"
+};
+function getFieldCode(subject){
+  const code=FIELD_CODE_BY_SUBJECT[subject];
+  if(!code) throw new Error("No existe un código curricular para la materia: "+subject);
+  return code;
+}
 const SUPABASE_URL="https://hsvtzlelcgxnzxncmqdm.supabase.co";
 const SUPABASE_ANON_KEY="sb_publishable_cAtjGjh77g54lnd8TdA04w_-vKCOW11";
 const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
 let authUser=null,familyId=null,activeChildId=null,cloudMode=false;
-const LOCAL_PROGRESS_KEY="aulaSantiago";
-let state=JSON.parse(localStorage.getItem(LOCAL_PROGRESS_KEY)||'{"stars":0,"completed":[]}');
+let state=JSON.parse(localStorage.getItem("aulaSantiago")||'{"stars":0,"completed":[]}');
 let currentQuiz=[],selected={};
-function save(){const key=(authUser&&activeChildId)?`aulaSantiago_${authUser.id}_${activeChildId}`:LOCAL_PROGRESS_KEY;localStorage.setItem(key,JSON.stringify(state));updateStats()}
-function fieldCodeFor(subject){return subject==="Español"||subject==="Comprensión lectora"?"lenguajes":"saberes_pensamiento_cientifico";}
+const pendingTopicSaves=new Set();
+function save(){
+  // La copia local autenticada queda separada por familia y perfil infantil.
+  const key=(authUser&&familyId&&activeChildId)?`aulaSantiago:${familyId}:${activeChildId}`:"aulaSantiago";
+  localStorage.setItem(key,JSON.stringify(state));
+  updateStats();
+}
 function setStatus(msg,isError=false){const el=document.getElementById("accountStatus");el.textContent=msg;el.classList.toggle("danger",isError)}
 async function loadFamily(){
   const {data:mem,error:memErr}=await sb.from("family_members").select("family_id,role").eq("user_id",authUser.id).not("verified_at","is",null).limit(1).maybeSingle();
@@ -130,33 +146,51 @@ async function loadFamily(){
   const sel=document.getElementById("childSelect");
   sel.innerHTML='<option value="">Selecciona un perfil</option>'+children.map(c=>`<option value="${c.id}">${escapeHtml(c.display_name)}${c.nickname?" ("+escapeHtml(c.nickname)+")":""}</option>`).join("");
   if(children.length){sel.value=children[0].id;await selectChild(children[0].id);}
-  else {activeChildId=null;cloudMode=false;setStatus("Cuenta conectada. Agrega el perfil infantil para comenzar a guardar avances en la nube.");}
+  else {
+    activeChildId=null;cloudMode=false;state={stars:0,completed:[]};updateStats();
+    setStatus("Cuenta conectada. Agrega el perfil infantil para comenzar a guardar avances en la nube.");
+  }
 }
 async function selectChild(id){
   activeChildId=id||null;
-  if(!id){cloudMode=false;return;}
+  if(!id){cloudMode=false;state={stars:0,completed:[]};updateStats();return;}
   const {data:rows,error}=await sb.from("child_learning_progress").select("stars,xp,completed,notes").eq("family_id",familyId).eq("child_id",id);
   if(error) throw error;
   let completed=[],stars=0;
   (rows||[]).forEach(r=>{
-    stars+=Number(r.xp||0);
+    stars+=Number(r.stars||0);
     if(r.completed && r.notes && r.notes.startsWith("topic:")){const key=r.notes.slice(6);if(!completed.includes(key))completed.push(key);}
   });
   state={stars,completed};cloudMode=true;save();
   setStatus("Conectado. El avance de este perfil se guarda en Supabase.");
 }
-async function saveCloudProgress({stars=0,xp=0,completed=false,notes="",field_code=null,score=null}){
-  if(!authUser||!familyId||!activeChildId)return;
-  const safeFieldCode=field_code?fieldCodeFor(field_code):"lenguajes";
-  const payload={family_id:familyId,child_id:activeChildId,stars:Math.min(5,Math.max(0,Number(stars)||0)),xp:Math.max(0,Number(xp)||0),completed,notes,field_code:safeFieldCode,score,completed_at:completed?new Date().toISOString():null};
-  const {error}=await sb.from("child_learning_progress").insert(payload);
-  if(error){console.error(error);setStatus("No se pudo guardar el avance en la nube: "+error.message,true);}
+async function saveCloudProgress({stars=0,xp=0,completed=false,notes="",subject=null,score=null}){
+  if(!authUser||!familyId||!activeChildId||!cloudMode)return false;
+  const field_code=getFieldCode(subject);
+  // La restricción de Supabase permite como máximo 5 estrellas por registro.
+  // Si una actividad entrega 10, se divide en dos registros sin perder el total.
+  const chunks=[];
+  let remainingStars=Math.max(0,Number(stars)||0);
+  let first=true;
+  do{
+    const chunkStars=Math.min(5,remainingStars);
+    chunks.push({
+      family_id:familyId,child_id:activeChildId,stars:chunkStars,
+      xp:first?(Number(xp)||0):0,completed,notes,field_code,
+      score:score===null?null:Number(score),
+      completed_at:completed?new Date().toISOString():null
+    });
+    remainingStars-=chunkStars;first=false;
+  }while(remainingStars>0);
+  const {error}=await sb.from("child_learning_progress").insert(chunks);
+  if(error){console.error(error);setStatus("No se pudo guardar el avance en la nube: "+error.message,true);throw error;}
+  return true;
 }
 async function refreshAuth(){
   const {data:{session}}=await sb.auth.getSession();
   authUser=session?.user||null;
-  if(!authUser){document.getElementById("authForms").classList.remove("hidden");document.getElementById("familyArea").classList.add("hidden");familyId=null;activeChildId=null;cloudMode=false;state=JSON.parse(localStorage.getItem(LOCAL_PROGRESS_KEY)||'{"stars":0,"completed":[]}');updateStats();setStatus("Sesión cerrada. El avance local de este dispositivo sigue disponible.");return;}
-  try{await loadFamily();setStatus("Sesión iniciada. Selecciona el perfil infantil para consultar su avance.");}
+  if(!authUser){document.getElementById("authForms").classList.remove("hidden");document.getElementById("familyArea").classList.add("hidden");familyId=null;activeChildId=null;cloudMode=false;state={stars:0,completed:[]};updateStats();setStatus("Sesión cerrada. El avance local de este dispositivo sigue disponible.");return;}
+  try{await loadFamily();}
   catch(e){console.error(e);setStatus("No se pudo cargar la familia: "+e.message,true);}
 }
 document.getElementById("loginBtn").addEventListener("click",async()=>{
@@ -201,27 +235,4 @@ document.getElementById("subjectList").innerHTML=Object.keys(data).map(s=>`<div 
 function fillSelects(){["subjectSelect","parentSubject"].forEach(id=>{document.getElementById(id).innerHTML=Object.keys(data).map(s=>`<option>${s}</option>`).join("")});updateTopics()}
 function updateTopics(){let s=document.getElementById("subjectSelect").value;document.getElementById("topicSelect").innerHTML=data[s].map(t=>`<option>${t}</option>`).join("")}
 document.getElementById("subjectSelect").addEventListener("change",updateTopics);
-function openStudy(s,t){showPage("study");document.getElementById("subjectSelect").value=s;updateTopics();document.getElementById("topicSelect").value=t;document.getElementById("lesson").classList.add("hidden");document.getElementById("quiz").classList.add("hidden")}
-function renderLesson(){let s=document.getElementById("subjectSelect").value,t=document.getElementById("topicSelect").value;let examples={
-"Verbos en infinitivo":["Los verbos nombran acciones. En infinitivo terminan en AR, ER o IR.","AR: saltar, cantar, jugar. ER: comer, correr, beber. IR: dormir, escribir, vivir.","Ejemplo: «María corre». El infinitivo de corre es CORRER."],
-"Sumas y restas":["Sumar es juntar cantidades. Restar es quitar una cantidad.","Ejemplo: 12 + 5 = 17. Ejemplo: 17 − 5 = 12.","Puedes usar tus dedos, dibujos o fichas para contar."],
-"Multiplicaciones":["Multiplicar es sumar el mismo número varias veces.","Ejemplo: 3 × 4 significa 3 grupos de 4: 4 + 4 + 4 = 12.","Dibuja grupos de objetos para encontrar el resultado."],
-"Los seres vivos":["Los seres vivos nacen, crecen, se alimentan y pueden reproducirse.","Los animales, las plantas y las personas son seres vivos.","Una piedra no es un ser vivo porque no crece ni se alimenta."],
-"Lectura de cuentos":["Un cuento tiene personajes, un lugar y una historia.","El personaje principal es quien vive la parte más importante de la historia.","Al leer, piensa: ¿quién?, ¿dónde? y ¿qué pasó?"]};
-let generic=examples[t]||["Hoy aprenderemos "+t.toLowerCase()+".","Observa ejemplos, piensa qué tienen en común y explícalo con tus propias palabras.","Practica poco a poco. ¡Equivocarse también ayuda a aprender!"];
-document.getElementById("lesson").innerHTML=`<div class="panel" style="background:#f5f8ff"><h3>${emojis[s]} ${escapeHtml(t)}</h3><p>${generic[0]}</p><h3>Ejemplos</h3><p>${generic[1]}</p><p>${generic[2]}</p><button class="primary" onclick="completeTopic('${s}','${t}')">⭐ Terminé esta clase (+10)</button></div>`;document.getElementById("lesson").classList.remove("hidden")}
-function completeTopic(s,t){let key=s+"|"+t;if(!state.completed.includes(key)){state.completed.push(key);state.stars+=10;save();saveCloudProgress({stars:5,xp:10,completed:true,notes:"topic:"+key,field_code:s}).catch(console.error)}alert("¡Muy bien, Santiago! Ganaste 10 estrellas ⭐")}
-const quizBank={
-"Español":[["¿Cuál es un verbo en infinitivo?",["Corrió","Correr","Corriendo"],"Correr"],["¿Cuál termina en AR?",["Comer","Dormir","Jugar"],"Jugar"],["¿Cuál termina en ER?",["Cantar","Beber","Vivir"],"Beber"],["¿Cuál termina en IR?",["Escribir","Saltar","Correr"],"Escribir"],["¿Cuál es el infinitivo de «comió»?",["Comer","Comiendo","Come"],"Comer"]],
-"Matemáticas":[["¿Cuánto es 7 × 5?",["30","35","40"],"35"],["¿Cuánto es 24 + 18?",["32","42","44"],"42"],["¿Cuánto es 50 − 17?",["33","37","43"],"33"],["¿Cuánto es 6 × 3?",["18","16","21"],"18"],["¿Qué número tiene 3 decenas?",["3","13","30"],"30"]],
-"Ciencias":[["¿Qué necesitan las plantas?",["Agua y luz","Juguetes","Zapatos"],"Agua y luz"],["¿Qué órgano usamos para respirar?",["Corazón","Pulmones","Estómago"],"Pulmones"],["¿Cuál es un ser vivo?",["Piedra","Árbol","Mesa"],"Árbol"],["¿Qué animal es mamífero?",["Perro","Mariposa","Pez"],"Perro"],["¿En qué estado está el hielo?",["Líquido","Sólido","Gas"],"Sólido"]],
-"Comprensión lectora":[["¿Quién es el protagonista?",["Personaje principal","Título","Dibujo"],"Personaje principal"],["¿Qué nos dice el título?",["De qué puede tratar","El final exacto","La edad"],"De qué puede tratar"],["¿Dónde ocurre una historia?",["En el escenario","En el abecedario","En el título"],"En el escenario"],["¿Qué hacemos para comprender?",["Leer con atención","Saltar páginas","Cerrar el libro"],"Leer con atención"],["¿Qué es el final?",["El cierre de la historia","El nombre","El dibujo"],"El cierre de la historia"]]};
-function startQuiz(){let s=document.getElementById("subjectSelect").value;currentQuiz=quizBank[s];selected={};let box=document.getElementById("quiz");box.innerHTML=`<h3>📝 Examen de ${s}</h3><p class="small">Responde las cinco preguntas. Cada acierto vale una estrella.</p>`+currentQuiz.map((q,i)=>`<div class="q"><b>${i+1}. ${q[0]}</b>${q[1].map(o=>`<button class="choice" data-i="${i}" data-o="${o}">${o}</button>`).join("")}<div id="feedback${i}"></div></div>`).join("")+`<button class="primary" id="grade">Calificar examen</button><div id="result"></div>`;
-box.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{let i=b.dataset.i;selected[i]=b.dataset.o;box.querySelectorAll(`[data-i="${i}"]`).forEach(x=>x.classList.toggle("selected",x===b))});
-document.getElementById("grade").onclick=()=>{let score=0;currentQuiz.forEach((q,i)=>{let ok=selected[i]===q[2];if(ok)score++;document.getElementById("feedback"+i).innerHTML=`<p class="${ok?"correct":"wrong"}">${ok?"¡Correcto!":"Respuesta correcta: "+q[2]}</p>`});state.stars+=score;save();saveCloudProgress({stars:score,xp:score,completed:false,score,notes:"quiz:"+s,field_code:s}).catch(console.error);document.getElementById("result").innerHTML=`<h2>Resultado: ${score}/5 ⭐</h2><p>${score===5?"¡Perfecto, campeón!": "¡Buen esfuerzo! Revisa las respuestas y vuelve a practicar."}</p>`;document.getElementById("grade").disabled=true};
-box.classList.remove("hidden");box.scrollIntoView({behavior:"smooth",block:"start"})}
-function makeTask(){let task=document.getElementById("customTask").value.trim();if(!task){alert("Escribe primero la tarea.");return}let s=document.getElementById("parentSubject").value;let type=document.getElementById("taskType").value;let prompt=`Prepara para un niño de 7 años de segundo de primaria una actividad de ${s}. Tarea: ${task}. Formato: ${type}. Incluye explicación sencilla, ejemplos, ejercicios y respuestas separadas para el adulto.`;document.getElementById("taskOutput").innerHTML=`<b>Texto listo para copiar en ChatGPT:</b><p>${escapeHtml(prompt)}</p><button class="secondary" onclick="navigator.clipboard.writeText(${JSON.stringify(prompt)}).then(()=>alert('Copiado'))">Copiar instrucciones</button><p>Después pégalo en ChatGPT para generar la actividad personalizada.</p>`}
-fillSelects();updateStats();refreshAuth();
-if("serviceWorker" in navigator && location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
-</script>
-</body></html>
+function openStudy(s,t){showPage("study");document.getElementById("subjectSelect").value=s;updateTopics();document.getElementById("topicSelect").value=
