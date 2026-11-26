@@ -226,6 +226,8 @@ document.getElementById("saveChildBtn").addEventListener("click",async()=>{
   await loadFamily();document.getElementById("childSelect").value=data.id;await selectChild(data.id);
 });
 sb.auth.onAuthStateChange((_event,session)=>{authUser=session?.user||null;});
+// Recupera la sesión existente al abrir la aplicación.
+refreshAuth();
 
 function updateStats(){document.getElementById("stars").textContent=state.stars;document.getElementById("doneCount").textContent=state.completed.length+"/20";document.getElementById("bar").style.width=(state.completed.length/20*100)+"%";document.getElementById("starText").textContent="⭐ "+state.stars+" estrellas";
  document.getElementById("completedList").innerHTML=state.completed.length?state.completed.map(x=>"✅ "+escapeHtml(x.replace("|"," · "))).join("<br>"):"Todavía no hay temas marcados.";
@@ -241,4 +243,62 @@ document.getElementById("subjectList").innerHTML=Object.keys(data).map(s=>`<div 
 function fillSelects(){["subjectSelect","parentSubject"].forEach(id=>{document.getElementById(id).innerHTML=Object.keys(data).map(s=>`<option>${s}</option>`).join("")});updateTopics()}
 function updateTopics(){let s=document.getElementById("subjectSelect").value;document.getElementById("topicSelect").innerHTML=data[s].map(t=>`<option>${t}</option>`).join("")}
 document.getElementById("subjectSelect").addEventListener("change",updateTopics);
-function openStudy(s,t){showPage("study");document.getElementById("subjectSelect").value=s;updateTopics();document.getElementById("topicSelect").value=
+function openStudy(s,t){showPage("study");document.getElementById("subjectSelect").value=s;updateTopics();document.getElementById("topicSelect").value=t;document.getElementById("lesson").classList.add("hidden");document.getElementById("quiz").classList.add("hidden")}
+function renderLesson(){let s=document.getElementById("subjectSelect").value,t=document.getElementById("topicSelect").value;let examples={
+"Verbos en infinitivo":["Los verbos nombran acciones. En infinitivo terminan en AR, ER o IR.","AR: saltar, cantar, jugar. ER: comer, correr, beber. IR: dormir, escribir, vivir.","Ejemplo: «María corre». El infinitivo de corre es CORRER."],
+"Sumas y restas":["Sumar es juntar cantidades. Restar es quitar una cantidad.","Ejemplo: 12 + 5 = 17. Ejemplo: 17 − 5 = 12.","Puedes usar tus dedos, dibujos o fichas para contar."],
+"Multiplicaciones":["Multiplicar es sumar el mismo número varias veces.","Ejemplo: 3 × 4 significa 3 grupos de 4: 4 + 4 + 4 = 12.","Dibuja grupos de objetos para encontrar el resultado."],
+"Los seres vivos":["Los seres vivos nacen, crecen, se alimentan y pueden reproducirse.","Los animales, las plantas y las personas son seres vivos.","Una piedra no es un ser vivo porque no crece ni se alimenta."],
+"Lectura de cuentos":["Un cuento tiene personajes, un lugar y una historia.","El personaje principal es quien vive la parte más importante de la historia.","Al leer, piensa: ¿quién?, ¿dónde? y ¿qué pasó?"]};
+let generic=examples[t]||["Hoy aprenderemos "+t.toLowerCase()+".","Observa ejemplos, piensa qué tienen en común y explícalo con tus propias palabras.","Practica poco a poco. ¡Equivocarse también ayuda a aprender!"];
+document.getElementById("lesson").innerHTML=`<div class="panel" style="background:#f5f8ff"><h3>${emojis[s]} ${escapeHtml(t)}</h3><p>${generic[0]}</p><h3>Ejemplos</h3><p>${generic[1]}</p><p>${generic[2]}</p><button class="primary" onclick="completeTopic('${s}','${t}')">⭐ Terminé esta clase (+10)</button></div>`;document.getElementById("lesson").classList.remove("hidden")}
+async function completeTopic(s,t){
+  const key=s+"|"+t;
+  if(state.completed.includes(key)){
+    alert("¡Este tema ya está completado! Sigue practicando ⭐");
+    return;
+  }
+  state.completed.push(key);
+  state.stars+=10;
+  save();
+  try{
+    await saveCloudProgress({stars:10,xp:10,completed:true,notes:"topic:"+key,subject:s});
+    alert("¡Muy bien, Santiago! Ganaste 10 estrellas ⭐");
+  }catch(error){
+    // El progreso permanece en este dispositivo si falla la conexión.
+    alert("El avance quedó guardado en este dispositivo, pero no se pudo sincronizar con la nube. Revisa tu conexión.");
+  }
+}
+const quizBank={
+"Español":[["¿Cuál es un verbo en infinitivo?",["Corrió","Correr","Corriendo"],"Correr"],["¿Cuál termina en AR?",["Comer","Dormir","Jugar"],"Jugar"],["¿Cuál termina en ER?",["Cantar","Beber","Vivir"],"Beber"],["¿Cuál termina en IR?",["Escribir","Saltar","Correr"],"Escribir"],["¿Cuál es el infinitivo de «comió»?",["Comer","Comiendo","Come"],"Comer"]],
+"Matemáticas":[["¿Cuánto es 7 × 5?",["30","35","40"],"35"],["¿Cuánto es 24 + 18?",["32","42","44"],"42"],["¿Cuánto es 50 − 17?",["33","37","43"],"33"],["¿Cuánto es 6 × 3?",["18","16","21"],"18"],["¿Qué número tiene 3 decenas?",["3","13","30"],"30"]],
+"Ciencias":[["¿Qué necesitan las plantas?",["Agua y luz","Juguetes","Zapatos"],"Agua y luz"],["¿Qué órgano usamos para respirar?",["Corazón","Pulmones","Estómago"],"Pulmones"],["¿Cuál es un ser vivo?",["Piedra","Árbol","Mesa"],"Árbol"],["¿Qué animal es mamífero?",["Perro","Mariposa","Pez"],"Perro"],["¿En qué estado está el hielo?",["Líquido","Sólido","Gas"],"Sólido"]],
+"Comprensión lectora":[["¿Quién es el protagonista?",["Personaje principal","Título","Dibujo"],"Personaje principal"],["¿Qué nos dice el título?",["De qué puede tratar","El final exacto","La edad"],"De qué puede tratar"],["¿Dónde ocurre una historia?",["En el escenario","En el abecedario","En el título"],"En el escenario"],["¿Qué hacemos para comprender?",["Leer con atención","Saltar páginas","Cerrar el libro"],"Leer con atención"],["¿Qué es el final?",["El cierre de la historia","El nombre","El dibujo"],"El cierre de la historia"]]};
+function startQuiz(){let s=document.getElementById("subjectSelect").value;currentQuiz=quizBank[s];selected={};let box=document.getElementById("quiz");box.innerHTML=`<h3>📝 Examen de ${s}</h3><p class="small">Responde las cinco preguntas. Cada acierto vale una estrella.</p>`+currentQuiz.map((q,i)=>`<div class="q"><b>${i+1}. ${q[0]}</b>${q[1].map(o=>`<button class="choice" data-i="${i}" data-o="${o}">${o}</button>`).join("")}<div id="feedback${i}"></div></div>`).join("")+`<button class="primary" id="grade">Calificar examen</button><div id="result"></div>`;
+box.querySelectorAll(".choice").forEach(b=>b.onclick=()=>{let i=b.dataset.i;selected[i]=b.dataset.o;box.querySelectorAll(`[data-i="${i}"]`).forEach(x=>x.classList.toggle("selected",x===b))});
+document.getElementById("grade").onclick=async()=>{
+  let score=0;
+  currentQuiz.forEach((q,i)=>{
+    let ok=selected[i]===q[2];
+    if(ok)score++;
+    document.getElementById("feedback"+i).innerHTML=`<p class="${ok?"correct":"wrong"}">${ok?"¡Correcto!":"Respuesta correcta: "+q[2]}</p>`;
+  });
+  state.stars+=score;
+  save();
+  document.getElementById("result").innerHTML=`<h2>Resultado: ${score}/5 ⭐</h2><p>${score===5?"¡Perfecto, campeón!":"¡Buen esfuerzo! Revisa las respuestas y vuelve a practicar."}</p>`;
+  document.getElementById("grade").disabled=true;
+  const subject=document.getElementById("subjectSelect").value;
+  try{
+    await saveCloudProgress({stars:score,xp:score,completed:false,notes:"quiz:"+subject+"|"+document.getElementById("topicSelect").value,subject,score:score*20});
+  }catch(error){
+    document.getElementById("result").innerHTML+=`<p class="wrong">El resultado quedó guardado en este dispositivo, pero no se pudo sincronizar con la nube.</p>`;
+  }
+};
+box.classList.remove("hidden");box.scrollIntoView({behavior:"smooth",block:"start"})}
+function makeTask(){let task=document.getElementById("customTask").value.trim();if(!task){alert("Escribe primero la tarea.");return}let s=document.getElementById("parentSubject").value;let type=document.getElementById("taskType").value;let prompt=`Prepara para un niño de 7 años de segundo de primaria una actividad de ${s}. Tarea: ${task}. Formato: ${type}. Incluye explicación sencilla, ejemplos, ejercicios y respuestas separadas para el adulto.`;document.getElementById("taskOutput").innerHTML=`<b>Texto listo para copiar en ChatGPT:</b><p>${escapeHtml(prompt)}</p><button class="secondary" onclick="navigator.clipboard.writeText(${JSON.stringify(prompt)}).then(()=>alert('Copiado'))">Copiar instrucciones</button><p>Después pégalo en ChatGPT para generar la actividad personalizada.</p>`}
+fillSelects();updateStats();
+// Recupera automáticamente la sesión familiar al abrir o recargar la aplicación.
+refreshAuth().catch(error=>{console.error("No se pudo recuperar la sesión:",error);setStatus("No se pudo recuperar la sesión: "+error.message,true);});
+if("serviceWorker" in navigator && location.protocol.startsWith("http"))navigator.serviceWorker.register("./sw.js").catch(()=>{});
+</script>
+</body></html>
